@@ -1,0 +1,254 @@
+---
+title: "NYPD_Shooting"
+author: "DTSA"
+date: "April 23, 2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Step 1 Importing Data
+The data use for this Analysis is the shooting incident data that occured in NYC going back to 2006 through the end of 2022. The data is imported from[data.gov website.
+The first think we are going to do before starting our Analysis is to import tidyverse package bacause we are going to use them for data wrangling. We also need to import the lubridade package since we are going to deal with date and time for our analys.
+
+```{r get_gov_data and load library}
+###call the tidyverse library
+## use url to import data
+library("tidyverse")
+library(lubridate)
+url<-"https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+```
+
+Let's read in the data and see what we have.
+
+```{r import_data, message=FALSE}
+NYPD <- read_csv(url[1])
+
+```
+```{r display NYPD variable}
+NYPD
+```
+## Data Descritption.
+Our data contatins 19 columns, the description can be found [here](https://data.cityofnewyork.us/Public-Safety/NYPD-Shooting-Incident-Data-Year-To-Date-/5ucz-vwe8). The following columns are the columns that we need for our analysis.
+
+1. INCIDENT_KEY:	Randomly generated persistent ID for each arrest
+
+2.OCCUR_DATE:	Exact date of the shooting incident
+
+3.OCCUR_TIME:Exact time of the shooting incident
+
+4.BORO: Borough where the shooting incident occurred
+
+5.PRECINCT:	Precinct where the shooting incident occurred. The list of precinct can be found [here](https://www.nyc.gov/site/nypd/bureaus/patrol/precincts-landing.page)
+
+6.JURISDICTION_CODE:Jurisdiction where the shooting incident occurred. Jurisdiction codes 0(Patrol), 1(Transit) and 2(Housing) represent NYPD while codes 3 and more represent non NYPD jurisdictions. 
+
+7.LOCATION_DESC	:Location of the shooting incident
+
+8. STATISTICAL_MURDER_FLAG	
+Shooting resulted in the victim’s death which would be counted as a murder
+
+9.VIC_AGE_GROUP:Victim’s age within a category
+
+10.VIC_SEX:Victim’s sex description
+
+11.VIC_RACE	:Victim’s race description
+
+
+
+# Step 2 Exploratory Data Analysis
+
+We are going to conduct some exploratory data analysis in order to learn more about our dataset.
+### Shape of our dataset
+
+Here the function glimpse will provide the shape of our dataset, we are going to be able to know the number of columns which are the attributes of our dataset and the number of rows which is consider as the number of record or entry of our dataset.The function glimpse diplay also the name of each attributes and its corresponding variable type.
+
+
+```{r data shape}
+glimpse(NYPD)
+
+```
+Our dataset contains 19 rows(attributes) and 25596 columns. We don't need drop some of attributes for our analysis.
+When we look at the variable type of each attribute. We can see that the attribut Occur_date is a charactere and we will like to convert it to date data type. 
+
+Let also check the percentage of missing value for each attributes.
+
+
+```{r Missing value}
+sum(is.na(NYPD))
+```
+```{r}
+# calculating percentage of missing values
+(colMeans(is.na(NYPD)))*100
+```
+Among our 19 Attributes, 5 have missing values. LOCATION_DESC has 58.5 percent of missing value, PERP_SEX has 36.37 percent of missing values, PERP_RACE has 36.37 percent of missing values, JURIDICTION_code has 0.008 percent of missing values and PERP_AGE_GROUP has 36.50 percent of missing values.
+
+Let drop all the columns with more than 20% of missing values.
+```{r drop missing value}
+NYPDShooting = select(NYPD,-c(LOCATION_DESC, PERP_SEX, PERP_RACE,PERP_AGE_GROUP ))
+
+```
+We have dropped the attributes we more than 20% of missing values, now we are going to get ride of the attribute we don't need for our analysis. Let drop Longitude, Latitude, lon_lat, X_COORD_CD, Y_COORD_CD, INCIDENT_KEY
+
+```{r drop other attributes}
+NYPDShooting = select(NYPDShooting, -c(Longitude, Latitude, Lon_Lat,X_COORD_CD, Y_COORD_CD, INCIDENT_KEY ))
+
+```
+
+```{r}
+glimpse(NYPDShooting)
+```
+
+# Step 3 Data Vizualization
+
+
+### Plot number of shooting per victime race, victime sexe or victime GE GROUP
+
+```{r number of incident per victime race}
+# Group the data by jurisdiction_code and calculate the total number of incidents in each jurisdiction
+nypd_shooting_counts <- NYPDShooting %>%
+                        group_by(VIC_RACE) %>%
+                        summarize(total_incidents = n())
+
+# Customize the plot
+bar_color <- "#8A2BE2" # Change the bar color to blue
+
+ggplot(nypd_shooting_counts, aes(x = VIC_RACE, y = total_incidents, fill=VIC_RACE)) +
+  geom_bar(stat = "identity", fill = bar_color) +
+  labs(x = "Victime Race", y = "Total Incidents", title = "Number of Shooting Incidents per Victime race") +
+  theme_minimal() + # Use a minimalistic theme
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # Rotate the x-axis labels for readability
+  geom_text(aes(label = total_incidents), vjust = -0.5) # Add labels to the bars
+
+```
+```{r number of incident per victime sexe}
+# Group the data by jurisdiction_code and calculate the total number of incidents in each jurisdiction
+nypd_shooting_counts <- NYPDShooting %>%
+                        group_by(VIC_SEX) %>%
+                        summarize(total_incidents = n())
+
+# Customize the plot
+bar_color <- "#2E8B57" # Change the bar color to blue
+
+ggplot(nypd_shooting_counts, aes(x = VIC_SEX, y = total_incidents, fill=VIC_SEX)) +
+  geom_bar(stat = "identity", fill = bar_color) +
+  labs(x = "Victime Race", y = "Total Incidents", title = "Number of Shooting Incidents per Victime sexe") +
+  theme_minimal() + # Use a minimalistic theme
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # Rotate the x-axis labels for readability
+  geom_text(aes(label = total_incidents), vjust = -0.5) # Add labels to the bars
+
+```
+
+```{r number of incident per victime age group}
+# Group the data by jurisdiction_code and calculate the total number of incidents in each jurisdiction
+nypd_shooting_counts <- NYPDShooting %>%
+                        group_by(VIC_AGE_GROUP) %>%
+                        summarize(total_incidents = n())
+
+# Customize the plot
+bar_color <- "#DC143C" # Change the bar color to blue
+
+ggplot(nypd_shooting_counts, aes(x = VIC_AGE_GROUP, y = total_incidents, fill=VIC_AGE_GROUP)) +
+  geom_bar(stat = "identity", fill = bar_color) +
+  labs(x = "Victime Race", y = "Total Incidents", title = "Number of Shooting Incidents per Victime age group") +
+  theme_minimal() + # Use a minimalistic theme
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # Rotate the x-axis labels for readability
+  geom_text(aes(label = total_incidents), vjust = -0.5) # Add labels to the bars
+
+```
+
+#Percentage of crime in each boro
+
+We want to know which boro has the highest crime.
+```{r}
+Borough <- table(NYPDShooting$BORO)
+Borough <- as.data.frame(Borough)
+Borough$Percent <- round((Borough$Freq / sum(Borough$Freq)*100),2)
+Borough
+```
+
+```{r}
+ggplot(Borough, aes(x=Var1, y=Freq, fill=Var1)) + geom_bar(stat="identity") 
+```
+From our graph we can see that Brooklyn has the highest number of shooting.
+
+# Plotting Graph Between Number of Cases and Month on Each BORO
+```{r Visualize the cases occur in month}
+
+NYPD <- NYPDShooting %>%
+  select(c(1,2,3,4)) %>%
+  mutate(OCCUR_DATE = as.Date(OCCUR_DATE, "%m/%d/%Y"), 
+         case = 1)
+
+NYPD = NYPD%>% 
+  mutate(OCCUR_MONTH = as.numeric(format(NYPD$OCCUR_DATE, '%m')))
+summary(NYPD)
+
+```
+
+```{r Visualize the cases occur in month final}
+
+NYPDMonth = NYPD%>%   
+  group_by(OCCUR_MONTH, BORO)%>%
+  summarise(case = sum(case))
+
+
+NYPDMonth %>%
+  ggplot(aes(x = OCCUR_MONTH, y = case)) +
+  geom_point(aes(color = BORO)) +
+  geom_line(aes(color = BORO)) +
+  scale_x_continuous(breaks=c(1:12)) +
+  labs(x = "Month", y = "Number of Case")
+```
+
+# Plotting Graph Between Number of Cases and Year on Each BORO
+```{r Visualize the cases occur in Year}
+
+NYPD = NYPD%>% 
+  mutate(OCCUR_YEAR = as.numeric(format(NYPD$OCCUR_DATE, '%Y')))
+
+
+NYPDYear = NYPD%>%   
+  group_by(OCCUR_YEAR, BORO)%>%
+  summarise(case = sum(case))
+
+
+NYPDYear %>%
+  ggplot(aes(x = OCCUR_YEAR, y = case)) +
+  geom_point(aes(color = BORO)) +
+  geom_line(aes(color = BORO))+
+  labs(x = "Year", y = "Number of Case")
+```
+
+# Step 4 Fit the model
+
+In this step we are going to build a linear regression model our target variable is STATISTICAL_MURDER_FLAG	which record if the shooting result in murder or not. We going to fit our model with the variable OCCUR_TIME, VIC_AGE_GROUP, VIC_SEX, VIC_RACE.
+
+```{r multi linear regression}
+
+model1=lm(STATISTICAL_MURDER_FLAG~OCCUR_TIME+VIC_AGE_GROUP+ VIC_SEX+ VIC_RACE, data = NYPDShooting)
+
+#view model summary
+summary(model1)
+
+```
+
+
+
+
+# Conclusion
+Per the data visualization above, it seems like the race with the highest victim is black followed by white hispanic than black hispanic. There is more male as victims of shooting than female and the age groups whith more shooting victims are 18-24 and 25-44.
+
+We can also rank the BORO from the highest number of shooting to the lowest number of shooting as follow:Brooklyn, Bronx, Queens, Manathan than Staten Island.
+
+The months when the crime increase to the highest are between June and September, that lead us to the conclusion that there is a lot of shooting commited during summer and the law enforcement need to take proper measure to mitigate shooting especially during summer.
+
+We also plot the crime count per year for each boro, Brooklyn, Queens and staten Island crime decrease few month after the begining of 2020 which likely correspond to the start of covid 19 pandemic in the US but Manathan and Bronx number of shooting increase sharply during the same period. 
+
+
+# Bias sources
+From this data, I was not able to see race, sex and age group for the perpertor of the crime, since this attributes had more than 30% of missing values. Drawing conclusions form this attributes could lead us to bias since we don't know which race, sex or age group of crime perpetor are missings and why this data has high rate of missing values on such important attributes. The race with the highest victims is black, it is bias to think that the back was target on the crime when we don't have information about the population rate of black people in New York. 
